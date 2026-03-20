@@ -3,8 +3,8 @@ services:
     name: meet-zool-api
     env: docker
     plan: free
-    dockerContext: ./backend
-    dockerfilePath: ./backend/Dockerfile
+    rootDir: backend
+    dockerfilePath: Dockerfile
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:

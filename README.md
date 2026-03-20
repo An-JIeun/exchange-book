@@ -77,6 +77,13 @@ Render 배포 구성:
 4. 백엔드 URL 확인 (`https://<your-backend>.onrender.com`)
 5. 프론트 `VITE_API_BASE`를 `https://<your-backend>.onrender.com/api`로 입력
 
+### Render 에러 대응 (`Could not import module "main"`)
+
+이 에러가 뜨면 대부분 백엔드 빌드 루트가 잘못 잡힌 경우입니다.
+
+- [render.yaml](render.yaml)에서 백엔드 서비스가 `rootDir: backend`, `dockerfilePath: Dockerfile`인지 확인
+- Render에서 Blueprint를 다시 적용해 **백엔드를 재배포**
+
 > 무료 플랜/정책은 수시로 바뀔 수 있으므로 Render 요금 페이지를 함께 확인하세요.
 
 ## API 요약
