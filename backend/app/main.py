@@ -40,6 +40,24 @@ def _ensure_user_admin_column():
 
 _ensure_user_admin_column()
 
+
+def _ensure_nullable_reference_columns():
+    inspector = inspect(engine)
+    if "underlines" in inspector.get_table_names():
+        underline_columns = [column["name"] for column in inspector.get_columns("underlines")]
+        if "book_id" in underline_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE underlines MODIFY COLUMN book_id INT NULL"))
+
+    if "comments" in inspector.get_table_names():
+        comment_columns = [column["name"] for column in inspector.get_columns("comments")]
+        if "underline_id" in comment_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE comments MODIFY COLUMN underline_id INT NULL"))
+
+
+_ensure_nullable_reference_columns()
+
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(

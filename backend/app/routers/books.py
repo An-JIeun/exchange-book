@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -19,3 +19,19 @@ def create_book(payload: schemas.BookCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=list[schemas.BookRead])
 def list_books(db: Session = Depends(get_db)):
     return db.query(models.Book).all()
+
+
+@router.delete("/{book_id}")
+def delete_book(book_id: int, db: Session = Depends(get_db)):
+    book = db.query(models.Book).filter(models.Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    db.query(models.Underline).filter(models.Underline.book_id == book_id).update(
+        {models.Underline.book_id: None},
+        synchronize_session=False,
+    )
+
+    db.delete(book)
+    db.commit()
+    return {"ok": True}

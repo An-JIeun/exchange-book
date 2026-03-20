@@ -61,7 +61,7 @@ class UnderlineRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    book_id: int
+    book_id: int | None = None
     user_id: int
     page: int
     content: str
@@ -78,7 +78,7 @@ class CommentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    underline_id: int
+    underline_id: int | None = None
     user_id: int
     content: str
 

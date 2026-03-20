@@ -46,6 +46,11 @@ def delete_underline(underline_id: int, db: Session = Depends(get_db)):
     if not underline:
         raise HTTPException(status_code=404, detail="Underline not found")
 
+    db.query(models.Comment).filter(models.Comment.underline_id == underline_id).update(
+        {models.Comment.underline_id: None},
+        synchronize_session=False,
+    )
+
     db.delete(underline)
     db.commit()
     return {"ok": True}

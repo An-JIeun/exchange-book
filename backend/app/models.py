@@ -29,20 +29,20 @@ class Underline(Base):
     __tablename__ = "underlines"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    book_id: Mapped[int] = mapped_column(ForeignKey("books.id"), nullable=False, index=True)
+    book_id: Mapped[int | None] = mapped_column(ForeignKey("books.id"), nullable=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     page: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="underline", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="underline")
 
 
 class Comment(Base):
     __tablename__ = "comments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    underline_id: Mapped[int] = mapped_column(ForeignKey("underlines.id"), nullable=False, index=True)
+    underline_id: Mapped[int | None] = mapped_column(ForeignKey("underlines.id"), nullable=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 

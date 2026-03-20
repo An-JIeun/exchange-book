@@ -281,6 +281,21 @@ async function handleCreateBookByAdmin() {
   adminMessage.value = '책이 추가되었습니다.'
 }
 
+async function handleDeleteBookByAdmin(bookId) {
+  await request(`/books/${bookId}`, {
+    method: 'DELETE',
+  })
+
+  await ensureDisplayBooks()
+
+  if (selectedBookId.value === bookId) {
+    selectedBookId.value = books.value.length ? books.value[0].id : null
+    await loadUnderlines()
+  }
+
+  adminMessage.value = '책이 삭제되었습니다.'
+}
+
 function handleLogout() {
   isLoggedIn.value = false
   activeTab.value = 'library'
@@ -465,7 +480,10 @@ onMounted(async () => {
               <button @click="handleCreateBookByAdmin">책 등록</button>
             </div>
             <ul class="admin-list">
-              <li v-for="book in books" :key="book.id">#{{ book.id }} · {{ book.title }} ({{ book.author }})</li>
+              <li v-for="book in books" :key="book.id" class="admin-list-row">
+                <span>#{{ book.id }} · {{ book.title }} ({{ book.author }})</span>
+                <button class="delete-btn" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
+              </li>
             </ul>
           </article>
         </div>
@@ -732,6 +750,13 @@ button {
   flex-direction: column;
   gap: 4px;
   color: #4b5563;
+}
+
+.admin-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {
