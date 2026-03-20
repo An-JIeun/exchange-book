@@ -24,6 +24,22 @@ def _ensure_user_password_column():
 
 _ensure_user_password_column()
 
+
+def _ensure_user_admin_column():
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = [column["name"] for column in inspector.get_columns("users")]
+    if "is_admin" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+
+
+_ensure_user_admin_column()
+
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(

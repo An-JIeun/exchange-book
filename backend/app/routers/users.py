@@ -22,6 +22,25 @@ def create_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     user = models.User(
         nickname=payload.nickname,
         password_hash=_hash_password(payload.password),
+        is_admin=False,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/signup", response_model=schemas.UserRead)
+def signup_user(payload: schemas.UserSignup, db: Session = Depends(get_db)):
+    existing = db.query(models.User).filter(models.User.nickname == payload.nickname).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Nickname already exists")
+
+    has_users = db.query(models.User.id).first() is not None
+    user = models.User(
+        nickname=payload.nickname,
+        password_hash=_hash_password(payload.password),
+        is_admin=not has_users,
     )
     db.add(user)
     db.commit()

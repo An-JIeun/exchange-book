@@ -162,6 +162,27 @@ async function handleLogin() {
   }
 }
 
+async function handleSignup() {
+  if (!loginNickname.value.trim() || !loginPassword.value.trim()) return
+  try {
+    loading.value = true
+    errorMessage.value = ''
+    await request('/users/signup', {
+      method: 'POST',
+      body: JSON.stringify({
+        nickname: loginNickname.value.trim(),
+        password: loginPassword.value,
+      }),
+    })
+    errorMessage.value = '회원가입 완료. 이제 로그인해주세요.'
+    await loadUsers()
+  } catch {
+    errorMessage.value = '회원가입에 실패했습니다. 이미 존재하는 닉네임인지 확인해주세요.'
+  } finally {
+    loading.value = false
+  }
+}
+
 async function handleAddUnderline() {
   if (!currentUser.value || !selectedBookId.value || !underlineInput.value.trim()) return
   const pageNumber = Number(pageFilter.value || 1)
@@ -300,6 +321,7 @@ onMounted(async () => {
         <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
         <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
         <button :disabled="loading" @click="handleLogin">로그인</button>
+        <button :disabled="loading" @click="handleSignup">회원가입</button>
       </div>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </section>
@@ -315,7 +337,13 @@ onMounted(async () => {
 
       <div class="tab-row">
         <button :class="['tab-btn', { active: activeTab === 'library' }]" @click="activeTab = 'library'">서재</button>
-        <button :class="['tab-btn', { active: activeTab === 'admin' }]" @click="activeTab = 'admin'">Admin</button>
+        <button
+          v-if="currentUser?.is_admin"
+          :class="['tab-btn', { active: activeTab === 'admin' }]"
+          @click="activeTab = 'admin'"
+        >
+          Admin
+        </button>
       </div>
 
       <section v-if="activeTab === 'library'" class="bookshelf">

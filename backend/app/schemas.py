@@ -11,11 +11,17 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserSignup(BaseModel):
+    nickname: str
+    password: str
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     nickname: str
+    is_admin: bool = False
     current_book_id: int | None = None
     current_page: int | None = None
     next_book_id: int | None = None

@@ -10,6 +10,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     nickname: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     current_book_id: Mapped[int | None] = mapped_column(ForeignKey("books.id"), nullable=True)
     current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_book_id: Mapped[int | None] = mapped_column(ForeignKey("books.id"), nullable=True)
