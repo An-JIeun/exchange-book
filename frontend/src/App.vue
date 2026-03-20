@@ -504,20 +504,21 @@ onMounted(async () => {
 }
 
 .login-row {
+  flex-direction: column;
   align-items: stretch;
-  flex-wrap: nowrap;
 }
 
 .login-inputs {
-  flex: 1;
   display: flex;
   gap: 8px;
-  min-width: 0;
+  width: 100%;
 }
 
 .login-actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .meta-message {
@@ -542,6 +543,10 @@ button {
   cursor: pointer;
   background: #fff;
   white-space: nowrap;
+}
+
+.login-actions button {
+  min-width: 88px;
 }
 
 .library-page {
@@ -738,6 +743,10 @@ button {
   .login-inputs,
   .login-actions {
     flex-direction: column;
+  }
+
+  .login-actions button {
+    width: 100%;
   }
 
   .library-header {
