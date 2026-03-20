@@ -4,7 +4,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://exchange-book.onrender.com/api'
 
 const isLoggedIn = ref(false)
+const activeTab = ref('library')
 const loginNickname = ref('')
+const loginPassword = ref('')
 const currentUser = ref(null)
 
 const users = ref([])
@@ -12,6 +14,7 @@ const books = ref([])
 const selectedBookId = ref(null)
 const pageFilter = ref('')
 const underlineInput = ref('')
+const underlineInitialCommentInput = ref('')
 const underlines = ref([])
 const commentsByUnderline = ref({})
 const commentDraftByUnderline = ref({})
@@ -19,6 +22,11 @@ const errorMessage = ref('')
 const loading = ref(false)
 const initializing = ref(false)
 const coldStartMessage = ref('')
+const adminUserNickname = ref('')
+const adminUserPassword = ref('')
+const adminBookTitle = ref('')
+const adminBookAuthor = ref('')
+const adminMessage = ref('')
 
 const selectedBook = computed(() =>
   books.value.find((book) => book.id === selectedBookId.value) ?? null,
@@ -130,28 +138,25 @@ async function loadCommentsForUnderlines(lines) {
 }
 
 async function handleLogin() {
-  if (!loginNickname.value.trim()) return
+  if (!loginNickname.value.trim() || !loginPassword.value.trim()) return
   try {
     loading.value = true
     errorMessage.value = ''
-    await loadUsers()
-
-    const found = users.value.find((user) => user.nickname === loginNickname.value.trim())
-    if (found) {
-      currentUser.value = found
-    } else {
-      currentUser.value = await request('/users', {
-        method: 'POST',
-        body: JSON.stringify({ nickname: loginNickname.value.trim() }),
-      })
-      await loadUsers()
-    }
+    currentUser.value = await request('/users/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        nickname: loginNickname.value.trim(),
+        password: loginPassword.value,
+      }),
+    })
 
     isLoggedIn.value = true
+    loginPassword.value = ''
+    await loadUsers()
     await ensureDisplayBooks()
     await loadUnderlines()
   } catch (error) {
-    errorMessage.value = '로그인에 실패했습니다. 백엔드 서버를 확인해주세요.'
+    errorMessage.value = '로그인에 실패했습니다. 등록된 계정과 비밀번호를 확인해주세요.'
   } finally {
     loading.value = false
   }
@@ -170,10 +175,19 @@ async function handleAddUnderline() {
       page: pageNumber,
       content: underlineInput.value.trim(),
       is_public: true,
+      initial_comment: underlineInitialCommentInput.value.trim() || null,
     }),
   })
 
   underlineInput.value = ''
+  underlineInitialCommentInput.value = ''
+  await loadUnderlines()
+}
+
+async function handleDeleteUnderline(underlineId) {
+  await request(`/underlines/${underlineId}`, {
+    method: 'DELETE',
+  })
   await loadUnderlines()
 }
 
@@ -202,10 +216,56 @@ async function handleAddComment(underlineId) {
   }
 }
 
+async function handleDeleteComment(underlineId, commentId) {
+  await request(`/comments/${commentId}`, {
+    method: 'DELETE',
+  })
+
+  const comments = await request(`/comments/underline/${underlineId}`)
+  commentsByUnderline.value = {
+    ...commentsByUnderline.value,
+    [underlineId]: comments,
+  }
+}
+
+async function handleCreateUserByAdmin() {
+  const nickname = adminUserNickname.value.trim()
+  const password = adminUserPassword.value.trim()
+  if (!nickname || !password) return
+
+  await request('/users', {
+    method: 'POST',
+    body: JSON.stringify({ nickname, password }),
+  })
+
+  adminUserNickname.value = ''
+  adminUserPassword.value = ''
+  await loadUsers()
+  adminMessage.value = '회원이 추가되었습니다.'
+}
+
+async function handleCreateBookByAdmin() {
+  const title = adminBookTitle.value.trim()
+  const author = adminBookAuthor.value.trim()
+  if (!title || !author) return
+
+  await request('/books', {
+    method: 'POST',
+    body: JSON.stringify({ title, author }),
+  })
+
+  adminBookTitle.value = ''
+  adminBookAuthor.value = ''
+  await ensureDisplayBooks()
+  adminMessage.value = '책이 추가되었습니다.'
+}
+
 function handleLogout() {
   isLoggedIn.value = false
+  activeTab.value = 'library'
   currentUser.value = null
   loginNickname.value = ''
+  loginPassword.value = ''
   underlines.value = []
   commentsByUnderline.value = {}
 }
@@ -238,6 +298,7 @@ onMounted(async () => {
       <p v-if="initializing || coldStartMessage" class="meta-message">{{ coldStartMessage || '초기 데이터를 불러오는 중...' }}</p>
       <div class="login-row">
         <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
+        <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
         <button :disabled="loading" @click="handleLogin">로그인</button>
       </div>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -252,7 +313,12 @@ onMounted(async () => {
         <button @click="handleLogout">로그아웃</button>
       </header>
 
-      <section class="bookshelf">
+      <div class="tab-row">
+        <button :class="['tab-btn', { active: activeTab === 'library' }]" @click="activeTab = 'library'">서재</button>
+        <button :class="['tab-btn', { active: activeTab === 'admin' }]" @click="activeTab = 'admin'">Admin</button>
+      </div>
+
+      <section v-if="activeTab === 'library'" class="bookshelf">
         <article
           v-for="book in books"
           :key="book.id"
@@ -266,7 +332,7 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-if="selectedBook" class="editor-panel">
+      <section v-if="activeTab === 'library' && selectedBook" class="editor-panel">
         <h2>{{ selectedBook.title }}</h2>
 
         <div class="action-row">
@@ -276,12 +342,27 @@ onMounted(async () => {
 
         <div class="action-row">
           <input v-model="underlineInput" type="text" placeholder="밑줄 내용을 입력하세요" @keyup.enter="handleAddUnderline" />
+          <input
+            v-model="underlineInitialCommentInput"
+            type="text"
+            placeholder="첫 코멘트(선택)"
+            @keyup.enter="handleAddUnderline"
+          />
           <button @click="handleAddUnderline">밑줄 저장</button>
         </div>
 
         <div class="underline-list">
           <article v-for="line in underlines" :key="line.id" class="underline-item">
-            <p class="meta">페이지 {{ line.page }}</p>
+            <div class="underline-header-row">
+              <p class="meta">페이지 {{ line.page }}</p>
+              <button
+                v-if="currentUser?.id === line.user_id"
+                class="delete-btn"
+                @click="handleDeleteUnderline(line.id)"
+              >
+                밑줄 삭제
+              </button>
+            </div>
             <p class="author">작성자: {{ usersById[line.user_id]?.nickname || `유저 #${line.user_id}` }}</p>
             <p>{{ line.content }}</p>
 
@@ -292,6 +373,13 @@ onMounted(async () => {
                 <li v-for="comment in commentsByUnderline[line.id]" :key="comment.id">
                   <strong>{{ usersById[comment.user_id]?.nickname || `유저 #${comment.user_id}` }}</strong>
                   <span>{{ comment.content }}</span>
+                  <button
+                    v-if="currentUser?.id === comment.user_id"
+                    class="delete-btn"
+                    @click="handleDeleteComment(line.id, comment.id)"
+                  >
+                    삭제
+                  </button>
                 </li>
               </ul>
 
@@ -308,6 +396,49 @@ onMounted(async () => {
           </article>
           <p v-if="underlines.length === 0" class="empty">밑줄 데이터가 없습니다.</p>
         </div>
+      </section>
+
+      <section v-if="activeTab === 'admin'" class="editor-panel admin-panel">
+        <h2>Admin 페이지</h2>
+        <p class="meta">회원 관리와 책 추가를 할 수 있습니다.</p>
+
+        <div class="admin-grid">
+          <article class="admin-card">
+            <h3>회원 관리</h3>
+            <div class="action-row">
+              <input
+                v-model="adminUserNickname"
+                type="text"
+                placeholder="새 회원 닉네임"
+                @keyup.enter="handleCreateUserByAdmin"
+              />
+              <input
+                v-model="adminUserPassword"
+                type="password"
+                placeholder="초기 비밀번호"
+                @keyup.enter="handleCreateUserByAdmin"
+              />
+              <button @click="handleCreateUserByAdmin">회원 추가</button>
+            </div>
+            <ul class="admin-list">
+              <li v-for="user in users" :key="user.id">#{{ user.id }} · {{ user.nickname }}</li>
+            </ul>
+          </article>
+
+          <article class="admin-card">
+            <h3>책 추가</h3>
+            <div class="admin-form">
+              <input v-model="adminBookTitle" type="text" placeholder="책 제목" />
+              <input v-model="adminBookAuthor" type="text" placeholder="저자" />
+              <button @click="handleCreateBookByAdmin">책 등록</button>
+            </div>
+            <ul class="admin-list">
+              <li v-for="book in books" :key="book.id">#{{ book.id }} · {{ book.title }} ({{ book.author }})</li>
+            </ul>
+          </article>
+        </div>
+
+        <p v-if="adminMessage" class="meta-message">{{ adminMessage }}</p>
       </section>
     </section>
   </main>
@@ -373,6 +504,23 @@ button {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.tab-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+}
+
+.tab-btn.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
 }
 
 .bookshelf {
@@ -441,6 +589,13 @@ button {
   background: #fafafa;
 }
 
+.underline-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .author {
   margin: 4px 0;
   font-size: 13px;
@@ -471,8 +626,57 @@ button {
 .comment-list li {
   display: flex;
   gap: 6px;
+  align-items: center;
   font-size: 13px;
   color: #374151;
+}
+
+.delete-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  background: #fff;
+}
+
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.admin-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.admin-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #4b5563;
 }
 
 @media (max-width: 768px) {

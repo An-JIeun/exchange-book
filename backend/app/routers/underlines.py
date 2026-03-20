@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -17,6 +17,16 @@ def create_underline(payload: schemas.UnderlineCreate, db: Session = Depends(get
         is_public=payload.is_public,
     )
     db.add(underline)
+    db.flush()
+
+    if payload.initial_comment and payload.initial_comment.strip():
+        first_comment = models.Comment(
+            underline_id=underline.id,
+            user_id=payload.user_id,
+            content=payload.initial_comment.strip(),
+        )
+        db.add(first_comment)
+
     db.commit()
     db.refresh(underline)
     return underline
@@ -28,3 +38,14 @@ def list_book_underlines(book_id: int, page: int | None = None, db: Session = De
     if page is not None:
         query = query.filter(models.Underline.page == page)
     return query.order_by(models.Underline.page.asc()).all()
+
+
+@router.delete("/{underline_id}")
+def delete_underline(underline_id: int, db: Session = Depends(get_db)):
+    underline = db.query(models.Underline).filter(models.Underline.id == underline_id).first()
+    if not underline:
+        raise HTTPException(status_code=404, detail="Underline not found")
+
+    db.delete(underline)
+    db.commit()
+    return {"ok": True}

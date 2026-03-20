@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -28,3 +28,14 @@ def list_underline_comments(underline_id: int, db: Session = Depends(get_db)):
         .order_by(models.Comment.id.asc())
         .all()
     )
+
+
+@router.delete("/{comment_id}")
+def delete_comment(comment_id: int, db: Session = Depends(get_db)):
+    comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    db.delete(comment)
+    db.commit()
+    return {"ok": True}

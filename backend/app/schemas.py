@@ -3,6 +3,12 @@ from pydantic import BaseModel, ConfigDict
 
 class UserCreate(BaseModel):
     nickname: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    nickname: str
+    password: str
 
 
 class UserRead(BaseModel):
@@ -42,6 +48,7 @@ class UnderlineCreate(BaseModel):
     page: int
     content: str
     is_public: bool = True
+    initial_comment: str | None = None
 
 
 class UnderlineRead(BaseModel):
