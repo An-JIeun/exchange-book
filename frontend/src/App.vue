@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://exchange-book.onrender.com/api'
 
 const isLoggedIn = ref(false)
 const loginNickname = ref('')
@@ -13,23 +13,65 @@ const selectedBookId = ref(null)
 const pageFilter = ref('')
 const underlineInput = ref('')
 const underlines = ref([])
+const commentsByUnderline = ref({})
+const commentDraftByUnderline = ref({})
 const errorMessage = ref('')
 const loading = ref(false)
+const initializing = ref(false)
+const coldStartMessage = ref('')
 
 const selectedBook = computed(() =>
   books.value.find((book) => book.id === selectedBookId.value) ?? null,
 )
 
-async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!response.ok) {
-    throw new Error(`요청 실패: ${response.status}`)
+const usersById = computed(() => {
+  const mapped = {}
+  for (const user of users.value) {
+    mapped[user.id] = user
   }
-  if (response.status === 204) return null
-  return response.json()
+  return mapped
+})
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function request(path, options = {}, retryCount = 2, timeoutMs = 20000) {
+  let lastError
+
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+
+      if (!response.ok) {
+        throw new Error(`요청 실패: ${response.status}`)
+      }
+      if (response.status === 204) return null
+      return response.json()
+    } catch (error) {
+      clearTimeout(timer)
+      lastError = error
+      if (attempt < retryCount) {
+        await delay(1200 * (attempt + 1))
+      }
+    }
+  }
+
+  throw lastError
+}
+
+async function warmUpBackend() {
+  coldStartMessage.value = '서버를 깨우는 중입니다. 첫 요청은 최대 50초 이상 걸릴 수 있어요...'
+  await request('/health', { method: 'GET' }, 3, 70000)
+  coldStartMessage.value = ''
 }
 
 async function loadUsers() {
@@ -63,10 +105,28 @@ async function ensureDisplayBooks() {
 async function loadUnderlines() {
   if (!selectedBookId.value) {
     underlines.value = []
+    commentsByUnderline.value = {}
     return
   }
   const query = pageFilter.value ? `?page=${pageFilter.value}` : ''
   underlines.value = await request(`/underlines/book/${selectedBookId.value}${query}`)
+  await loadCommentsForUnderlines(underlines.value)
+}
+
+async function loadCommentsForUnderlines(lines) {
+  if (!lines.length) {
+    commentsByUnderline.value = {}
+    return
+  }
+
+  const pairs = await Promise.all(
+    lines.map(async (line) => {
+      const comments = await request(`/comments/underline/${line.id}`)
+      return [line.id, comments]
+    }),
+  )
+
+  commentsByUnderline.value = Object.fromEntries(pairs)
 }
 
 async function handleLogin() {
@@ -117,11 +177,37 @@ async function handleAddUnderline() {
   await loadUnderlines()
 }
 
+async function handleAddComment(underlineId) {
+  const content = (commentDraftByUnderline.value[underlineId] ?? '').trim()
+  if (!currentUser.value || !content) return
+
+  await request('/comments', {
+    method: 'POST',
+    body: JSON.stringify({
+      underline_id: underlineId,
+      user_id: currentUser.value.id,
+      content,
+    }),
+  })
+
+  commentDraftByUnderline.value = {
+    ...commentDraftByUnderline.value,
+    [underlineId]: '',
+  }
+
+  const comments = await request(`/comments/underline/${underlineId}`)
+  commentsByUnderline.value = {
+    ...commentsByUnderline.value,
+    [underlineId]: comments,
+  }
+}
+
 function handleLogout() {
   isLoggedIn.value = false
   currentUser.value = null
   loginNickname.value = ''
   underlines.value = []
+  commentsByUnderline.value = {}
 }
 
 watch(selectedBookId, async () => {
@@ -132,9 +218,14 @@ watch(selectedBookId, async () => {
 
 onMounted(async () => {
   try {
+    initializing.value = true
+    await warmUpBackend()
+    await loadUsers()
     await ensureDisplayBooks()
   } catch {
     errorMessage.value = '초기 데이터 로딩에 실패했습니다.'
+  } finally {
+    initializing.value = false
   }
 })
 </script>
@@ -144,6 +235,7 @@ onMounted(async () => {
     <section v-if="!isLoggedIn" class="login-card">
       <h1>meet-zool</h1>
       <p>교환독서 서재에 입장하려면 닉네임으로 로그인하세요.</p>
+      <p v-if="initializing || coldStartMessage" class="meta-message">{{ coldStartMessage || '초기 데이터를 불러오는 중...' }}</p>
       <div class="login-row">
         <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
         <button :disabled="loading" @click="handleLogin">로그인</button>
@@ -190,7 +282,29 @@ onMounted(async () => {
         <div class="underline-list">
           <article v-for="line in underlines" :key="line.id" class="underline-item">
             <p class="meta">페이지 {{ line.page }}</p>
+            <p class="author">작성자: {{ usersById[line.user_id]?.nickname || `유저 #${line.user_id}` }}</p>
             <p>{{ line.content }}</p>
+
+            <div class="comment-block">
+              <p class="comment-title">댓글</p>
+              <p v-if="!(commentsByUnderline[line.id] || []).length" class="empty">아직 댓글이 없습니다.</p>
+              <ul v-else class="comment-list">
+                <li v-for="comment in commentsByUnderline[line.id]" :key="comment.id">
+                  <strong>{{ usersById[comment.user_id]?.nickname || `유저 #${comment.user_id}` }}</strong>
+                  <span>{{ comment.content }}</span>
+                </li>
+              </ul>
+
+              <div class="action-row">
+                <input
+                  v-model="commentDraftByUnderline[line.id]"
+                  type="text"
+                  placeholder="댓글을 입력하세요"
+                  @keyup.enter="handleAddComment(line.id)"
+                />
+                <button @click="handleAddComment(line.id)">댓글 등록</button>
+              </div>
+            </div>
           </article>
           <p v-if="underlines.length === 0" class="empty">밑줄 데이터가 없습니다.</p>
         </div>
@@ -224,6 +338,12 @@ onMounted(async () => {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.meta-message {
+  margin-top: 10px;
+  color: #6b7280;
+  font-size: 13px;
 }
 
 input,
@@ -319,6 +439,40 @@ button {
   border-radius: 10px;
   padding: 10px;
   background: #fafafa;
+}
+
+.author {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.comment-block {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.comment-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-list li {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
 }
 
 @media (max-width: 768px) {
