@@ -318,10 +318,14 @@ onMounted(async () => {
       <p>교환독서 서재에 입장하려면 닉네임으로 로그인하세요.</p>
       <p v-if="initializing || coldStartMessage" class="meta-message">{{ coldStartMessage || '초기 데이터를 불러오는 중...' }}</p>
       <div class="login-row">
-        <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
-        <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
-        <button :disabled="loading" @click="handleLogin">로그인</button>
-        <button :disabled="loading" @click="handleSignup">회원가입</button>
+        <div class="login-inputs">
+          <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
+          <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
+        </div>
+        <div class="login-actions">
+          <button :disabled="loading" @click="handleLogin">로그인</button>
+          <button :disabled="loading" @click="handleSignup">회원가입</button>
+        </div>
       </div>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </section>
@@ -499,6 +503,23 @@ onMounted(async () => {
   margin-top: 12px;
 }
 
+.login-row {
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.login-inputs {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.login-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .meta-message {
   margin-top: 10px;
   color: #6b7280;
@@ -520,6 +541,7 @@ input {
 button {
   cursor: pointer;
   background: #fff;
+  white-space: nowrap;
 }
 
 .library-page {
@@ -710,6 +732,12 @@ button {
 @media (max-width: 768px) {
   .container {
     padding: 12px;
+  }
+
+  .login-row,
+  .login-inputs,
+  .login-actions {
+    flex-direction: column;
   }
 
   .library-header {
