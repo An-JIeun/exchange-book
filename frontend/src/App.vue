@@ -559,18 +559,26 @@ onMounted(async () => {
 
 <style scoped>
 .container {
+  --primary: #96ba95;
+  --primary-strong: #7ea97d;
+  --primary-soft: #eaf2e9;
+  --text-main: #1f2937;
+  --text-sub: #6b7280;
+  --line: #dfe7df;
   min-height: 100vh;
-  padding: 24px;
-  background: #f3f4f6;
+  padding: 16px;
+  background: linear-gradient(180deg, #f6faf6 0%, #eef4ee 100%);
+  color: var(--text-main);
 }
 
 .login-card {
-  max-width: 480px;
-  margin: 120px auto 0;
+  max-width: 520px;
+  margin: 72px auto 0;
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
 }
 
 .initial-loader-wrap {
@@ -584,13 +592,16 @@ onMounted(async () => {
 
 .login-card h1 {
   margin: 0 0 10px;
+  font-size: 30px;
+  letter-spacing: -0.02em;
 }
 
 .login-row,
 .action-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-top: 12px;
+  flex-wrap: wrap;
 }
 
 .login-row {
@@ -600,20 +611,22 @@ onMounted(async () => {
 
 .login-inputs {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .login-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .meta-message {
   margin-top: 10px;
-  color: #6b7280;
+  color: var(--text-sub);
   font-size: 13px;
 }
 
@@ -621,7 +634,7 @@ onMounted(async () => {
   width: 28px;
   height: 28px;
   border: 3px solid #e5e7eb;
-  border-top-color: #111827;
+  border-top-color: var(--primary-strong);
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
 }
@@ -634,28 +647,52 @@ onMounted(async () => {
 
 input,
 button {
-  border: 1px solid #d1d5db;
+  border: 1px solid #d3dfd3;
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
 }
 
 input {
-  flex: 1;
+  flex: 1 1 220px;
+  min-width: 0;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(150, 186, 149, 0.2);
 }
 
 button {
   cursor: pointer;
-  background: #fff;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
   white-space: nowrap;
+  transition: transform 0.12s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .login-actions button {
-  min-width: 88px;
+  min-width: 96px;
 }
 
 .library-page {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
@@ -663,42 +700,39 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
 }
 
 .tab-row {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .tab-btn {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--line);
+  color: #3f4b45;
   background: #fff;
 }
 
 .tab-btn.active {
-  background: #111827;
+  background: var(--primary-strong);
   color: #fff;
-  border-color: #111827;
+  border-color: var(--primary-strong);
 }
 
 .bookshelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
-  padding: 18px;
+  padding: 14px;
   border-radius: 14px;
-  background:
-    linear-gradient(to bottom, rgba(120, 74, 33, 0.14), rgba(120, 74, 33, 0.2)),
-    repeating-linear-gradient(
-      to bottom,
-      #f6e8d5 0,
-      #f6e8d5 72px,
-      #d4a373 72px,
-      #d4a373 80px
-    );
-  border: 1px solid #e5d6c6;
+  background: #fff;
+  border: 1px solid var(--line);
 }
 
 .book-card {
@@ -707,8 +741,8 @@ button {
   gap: 4px;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid transparent;
+  background: #f8fbf8;
+  border: 1px solid #ecf1ec;
   cursor: pointer;
 }
 
@@ -741,7 +775,8 @@ button {
 }
 
 .book-card.selected {
-  border-color: #111827;
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0 2px rgba(150, 186, 149, 0.22);
 }
 
 .book-cover {
@@ -752,15 +787,16 @@ button {
 .meta,
 .empty,
 .error {
-  color: #6b7280;
+  color: var(--text-sub);
 }
 
 .editor-panel {
-  margin-top: 16px;
+  margin-top: 14px;
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 18px;
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.05);
 }
 
 .underline-list {
@@ -773,10 +809,10 @@ button {
 .underline-carousel-loader {
   overflow: hidden;
   width: 100%;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed #d7e2d7;
   border-radius: 12px;
   padding: 10px;
-  background: #fafafa;
+  background: #f8fbf8;
 }
 
 .carousel-track {
@@ -798,10 +834,10 @@ button {
 }
 
 .underline-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fafafa;
+  border: 1px solid #e2ebe2;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfdfb;
 }
 
 .underline-header-row {
@@ -814,19 +850,19 @@ button {
 .author {
   margin: 4px 0;
   font-size: 13px;
-  color: #4b5563;
+  color: #4b5b53;
 }
 
 .comment-block {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px dashed #e5e7eb;
+  border-top: 1px dashed #dfe8df;
 }
 
 .comment-title {
   margin: 0 0 6px;
   font-size: 13px;
-  color: #4b5563;
+  color: #4b5b53;
 }
 
 .comment-list {
@@ -843,7 +879,7 @@ button {
   gap: 6px;
   align-items: center;
   font-size: 13px;
-  color: #374151;
+  color: #334155;
 }
 
 .delete-btn {
@@ -853,6 +889,12 @@ button {
   border: 1px solid #ef4444;
   color: #ef4444;
   background: #fff;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #dc2626;
+  color: #dc2626;
 }
 
 .admin-panel {
@@ -868,10 +910,10 @@ button {
 }
 
 .admin-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   padding: 12px;
-  background: #fafafa;
+  background: #f9fcf9;
 }
 
 .admin-card h3 {
@@ -891,7 +933,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #4b5563;
+  color: #4b5b53;
 }
 
 .admin-list-row {
@@ -933,13 +975,21 @@ button {
     padding: 12px;
   }
 
+  .login-card {
+    margin-top: 36px;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
   .login-row,
   .login-inputs,
-  .login-actions {
+  .login-actions,
+  .action-row {
     flex-direction: column;
   }
 
-  .login-actions button {
+  .login-actions button,
+  .action-row button {
     width: 100%;
   }
 
@@ -947,6 +997,29 @@ button {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .bookshelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .carousel-card {
+    width: 220px;
+  }
+}
+
+@media (max-width: 520px) {
+  .container {
+    padding: 10px;
+  }
+
+  .bookshelf {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-panel,
+  .library-header {
+    padding: 14px;
   }
 }
 </style>
