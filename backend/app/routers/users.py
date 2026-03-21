@@ -1,6 +1,7 @@
 import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -68,6 +69,31 @@ def login_user(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @router.get("", response_model=list[schemas.UserRead])
 def list_users(db: Session = Depends(get_db)):
     return db.query(models.User).all()
+
+
+@router.delete("/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_underline_ids_subquery = select(models.Underline.id).where(models.Underline.user_id == user_id)
+
+    db.query(models.Comment).filter(
+        models.Comment.underline_id.in_(user_underline_ids_subquery)
+    ).update({models.Comment.underline_id: None}, synchronize_session=False)
+
+    db.query(models.Comment).filter(models.Comment.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.Underline).filter(models.Underline.user_id == user_id).delete(synchronize_session=False)
+
+    db.query(models.User).filter(models.User.current_book_id.is_not(None), models.User.id == user_id).update(
+        {models.User.current_book_id: None, models.User.current_page: None, models.User.next_book_id: None},
+        synchronize_session=False,
+    )
+
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.patch("/{user_id}/dashboard", response_model=schemas.UserRead)

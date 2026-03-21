@@ -44,6 +44,13 @@ class BookCreate(BaseModel):
     total_pages: int | None = None
 
 
+class BookUpdate(BaseModel):
+    title: str | None = None
+    author: str | None = None
+    cover_url: str | None = None
+    total_pages: int | None = None
+
+
 class BookRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

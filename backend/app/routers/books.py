@@ -26,6 +26,26 @@ def list_books(db: Session = Depends(get_db)):
     return db.query(models.Book).all()
 
 
+@router.patch("/{book_id}", response_model=schemas.BookRead)
+def update_book(book_id: int, payload: schemas.BookUpdate, db: Session = Depends(get_db)):
+    book = db.query(models.Book).filter(models.Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    if payload.title is not None:
+        book.title = payload.title
+    if payload.author is not None:
+        book.author = payload.author
+    if payload.cover_url is not None:
+        book.cover_url = payload.cover_url
+    if payload.total_pages is not None:
+        book.total_pages = payload.total_pages
+
+    db.commit()
+    db.refresh(book)
+    return book
+
+
 @router.delete("/{book_id}")
 def delete_book(book_id: int, db: Session = Depends(get_db)):
     book = db.query(models.Book).filter(models.Book.id == book_id).first()

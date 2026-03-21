@@ -31,6 +31,10 @@ const adminUserPassword = ref('')
 const adminBookTitle = ref('')
 const adminBookAuthor = ref('')
 const adminBookTotalPages = ref('')
+const adminEditingBookId = ref(null)
+const adminEditBookTitle = ref('')
+const adminEditBookAuthor = ref('')
+const adminEditBookTotalPages = ref('')
 const adminMessage = ref('')
 const readingBoard = ref([])
 const readingDraftByUser = ref({})
@@ -347,6 +351,25 @@ async function handleCreateUserByAdmin() {
   }
 }
 
+async function handleDeleteUserByAdmin(userId) {
+  if (currentUser.value?.id === userId) {
+    adminMessage.value = '현재 로그인한 계정은 삭제할 수 없습니다.'
+    return
+  }
+
+  loadingAdminAction.value = true
+  try {
+    await request(`/users/${userId}`, {
+      method: 'DELETE',
+    })
+
+    await Promise.all([loadUsers(), loadReadingBoard()])
+    adminMessage.value = '회원이 삭제되었습니다.'
+  } finally {
+    loadingAdminAction.value = false
+  }
+}
+
 async function handleCreateBookByAdmin() {
   const title = adminBookTitle.value.trim()
   const author = adminBookAuthor.value.trim()
@@ -389,6 +412,47 @@ async function handleDeleteBookByAdmin(bookId) {
     await loadReadingBoard()
 
     adminMessage.value = '책이 삭제되었습니다.'
+  } finally {
+    loadingAdminAction.value = false
+  }
+}
+
+function handleStartEditBook(book) {
+  adminEditingBookId.value = book.id
+  adminEditBookTitle.value = book.title
+  adminEditBookAuthor.value = book.author
+  adminEditBookTotalPages.value = book.total_pages ?? ''
+}
+
+function handleCancelEditBook() {
+  adminEditingBookId.value = null
+  adminEditBookTitle.value = ''
+  adminEditBookAuthor.value = ''
+  adminEditBookTotalPages.value = ''
+}
+
+async function handleUpdateBookByAdmin(bookId) {
+  const title = adminEditBookTitle.value.trim()
+  const author = adminEditBookAuthor.value.trim()
+  const totalPages = adminEditBookTotalPages.value === '' ? null : Number(adminEditBookTotalPages.value)
+
+  if (!title || !author) return
+  if (totalPages !== null && (Number.isNaN(totalPages) || totalPages < 1)) return
+
+  loadingAdminAction.value = true
+  try {
+    await request(`/books/${bookId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        title,
+        author,
+        total_pages: totalPages,
+      }),
+    })
+
+    await Promise.all([ensureDisplayBooks(), loadReadingBoard()])
+    handleCancelEditBook()
+    adminMessage.value = '책 정보가 수정되었습니다.'
   } finally {
     loadingAdminAction.value = false
   }
@@ -727,7 +791,16 @@ onMounted(async () => {
               <button :disabled="loadingAdminAction" @click="handleCreateUserByAdmin">회원 추가</button>
             </div>
             <ul class="admin-list">
-              <li v-for="user in users" :key="user.id">#{{ user.id }} · {{ user.nickname }}</li>
+              <li v-for="user in users" :key="user.id" class="admin-list-row">
+                <span>#{{ user.id }} · {{ user.nickname }}</span>
+                <button
+                  class="delete-btn"
+                  :disabled="loadingAdminAction || currentUser?.id === user.id"
+                  @click="handleDeleteUserByAdmin(user.id)"
+                >
+                  회원 삭제
+                </button>
+              </li>
             </ul>
           </article>
 
@@ -742,9 +815,22 @@ onMounted(async () => {
             <ul class="admin-list">
               <li v-for="book in books" :key="book.id" class="admin-list-row">
                 <span>#{{ book.id }} · {{ book.title }} ({{ book.author }}) · {{ book.total_pages || '-' }}p</span>
-                <button class="delete-btn" :disabled="loadingAdminAction || loadingBooks" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
+                <div class="admin-book-actions">
+                  <button :disabled="loadingAdminAction || loadingBooks" @click="handleStartEditBook(book)">책 수정</button>
+                  <button class="delete-btn" :disabled="loadingAdminAction || loadingBooks" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
+                </div>
               </li>
             </ul>
+
+            <div v-if="adminEditingBookId !== null" class="admin-form edit-form">
+              <input v-model="adminEditBookTitle" type="text" placeholder="수정할 책 제목" />
+              <input v-model="adminEditBookAuthor" type="text" placeholder="수정할 저자" />
+              <input v-model="adminEditBookTotalPages" type="number" min="1" placeholder="수정할 총 페이지(선택)" />
+              <div class="admin-edit-actions">
+                <button :disabled="loadingAdminAction" @click="handleUpdateBookByAdmin(adminEditingBookId)">수정 저장</button>
+                <button :disabled="loadingAdminAction" @click="handleCancelEditBook">취소</button>
+              </div>
+            </div>
           </article>
         </div>
 
@@ -1277,6 +1363,21 @@ button:disabled {
   gap: 8px;
 }
 
+.admin-book-actions,
+.admin-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-form {
+  margin-top: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
 .inline-loader-row {
   display: flex;
   align-items: center;
@@ -1462,6 +1563,12 @@ button:disabled {
   .admin-form button {
     width: 100%;
     flex: 1 1 100%;
+  }
+
+  .admin-book-actions,
+  .admin-edit-actions {
+    width: 100%;
+    flex-direction: column;
   }
 
   .underline-comment-row {
