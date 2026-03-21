@@ -77,4 +77,8 @@ app.include_router(dashboards.router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():
+    """
+    Health check endpoint for UptimeRobot.
+    This endpoint is pinged every 5 minutes to keep the app awake on Render's free tier.
+    """
     return {"status": "ok"}
