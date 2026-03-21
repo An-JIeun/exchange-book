@@ -52,6 +52,16 @@ const usersById = computed(() => {
   return mapped
 })
 
+const visibleReadingBoard = computed(() => {
+  const filtered = readingBoard.value.filter((item) => !item.user.is_admin)
+  const myId = currentUser.value?.id
+  return [...filtered].sort((a, b) => {
+    if (a.user.id === myId && b.user.id !== myId) return -1
+    if (b.user.id === myId && a.user.id !== myId) return 1
+    return a.user.id - b.user.id
+  })
+})
+
 const readingStatusOptions = [
   { value: 'before', label: '읽기전' },
   { value: 'reading', label: '읽는중' },
@@ -695,10 +705,13 @@ onMounted(async () => {
         </div>
 
         <div v-else class="reading-grid">
-          <article v-for="item in readingBoard" :key="item.user.id" class="reading-card">
+          <article
+            v-for="item in visibleReadingBoard"
+            :key="item.user.id"
+            :class="['reading-card', { own: currentUser?.id === item.user.id }]"
+          >
             <div class="reading-card-head">
               <strong>{{ item.user.nickname }}</strong>
-              <span class="meta">{{ currentUser?.id === item.user.id ? '내 카드' : '읽기 전용' }}</span>
             </div>
 
             <div class="reading-form-row">
@@ -1264,6 +1277,12 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.reading-card.own {
+  border-color: var(--primary-strong);
+  background: #f2f8f2;
+  box-shadow: 0 0 0 2px rgba(150, 186, 149, 0.2);
 }
 
 .reading-card-head {
