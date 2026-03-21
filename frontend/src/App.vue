@@ -425,7 +425,7 @@ onMounted(async () => {
       <section v-if="activeTab === 'library' && selectedBook" class="editor-panel">
         <h2>{{ selectedBook.title }}</h2>
 
-        <div class="action-row">
+        <div class="action-row page-query-row">
           <input v-model="pageFilter" type="number" min="1" placeholder="페이지 번호" />
           <button :disabled="loadingUnderlines" @click="loadUnderlines">페이지 조회</button>
         </div>
@@ -487,7 +487,7 @@ onMounted(async () => {
                   </li>
                 </ul>
 
-                <div class="action-row">
+                <div class="action-row comment-input-row">
                   <input
                     v-model="commentDraftByUnderline[line.id]"
                     type="text"
@@ -649,8 +649,9 @@ input,
 button {
   border: 1px solid #d3dfd3;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 14px;
+  line-height: 1.2;
 }
 
 input {
@@ -977,7 +978,7 @@ button:disabled {
 
   input {
     font-size: 13px;
-    padding: 8px 10px;
+    padding: 7px 9px;
     border-radius: 9px;
   }
 
@@ -1005,14 +1006,67 @@ button:disabled {
 
   .login-row,
   .login-inputs,
-  .login-actions,
-  .action-row {
+  .login-actions {
     flex-direction: column;
   }
 
   .login-actions button,
-  .action-row button {
+  .login-inputs input,
+  .login-actions button {
     width: 100%;
+  }
+
+  .action-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .action-row input {
+    flex: 1 1 140px;
+  }
+
+  .action-row button {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 7px 10px;
+  }
+
+  .page-query-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .page-query-row input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-query-row button {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .comment-input-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .comment-input-row input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .comment-input-row button {
+    width: auto;
+    white-space: nowrap;
   }
 
   .library-header {
@@ -1037,7 +1091,7 @@ button:disabled {
 
   input {
     font-size: 12px;
-    padding: 7px 9px;
+    padding: 6px 8px;
   }
 
   .login-card {
@@ -1051,8 +1105,24 @@ button:disabled {
 
   .login-card input,
   .login-card button {
-    padding: 7px 9px;
+    padding: 6px 8px;
     font-size: 12px;
+  }
+
+  .action-row {
+    gap: 6px;
+  }
+
+  .action-row button {
+    padding: 6px 8px;
+  }
+
+  .page-query-row {
+    gap: 6px;
+  }
+
+  .comment-input-row {
+    gap: 6px;
   }
 
   .bookshelf {
