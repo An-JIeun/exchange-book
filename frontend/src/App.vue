@@ -672,6 +672,18 @@ onMounted(async () => {
               />
             </div>
 
+            <div class="reading-form-row reading-page-row">
+              <label>저장</label>
+              <div></div>
+              <button
+                v-if="currentUser?.id === item.user.id"
+                :disabled="loadingReadingBoard"
+                @click="handleSaveReadingCard(item.user.id)"
+              >
+                저장
+              </button>
+            </div>
+
             <div class="reading-progress" v-if="getReadingProgressPercent(item) !== null">
               <div class="reading-progress-top">
                 <span>진행률</span>
@@ -686,13 +698,6 @@ onMounted(async () => {
             </div>
             <p v-else class="meta">진행률을 보려면 책의 총 페이지를 등록하세요.</p>
 
-            <button
-              v-if="currentUser?.id === item.user.id"
-              :disabled="loadingReadingBoard"
-              @click="handleSaveReadingCard(item.user.id)"
-            >
-              내 카드 저장
-            </button>
           </article>
         </div>
 
@@ -1183,14 +1188,25 @@ button:disabled {
 }
 
 .reading-form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
 }
 
 .reading-form-row label {
   font-size: 12px;
   color: var(--text-sub);
+}
+
+.reading-page-row {
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+}
+
+.reading-page-row button {
+  width: auto;
+  padding: 6px 10px;
+  white-space: nowrap;
 }
 
 .reading-progress {
@@ -1531,6 +1547,19 @@ button:disabled {
 
   .reading-grid {
     grid-template-columns: 1fr;
+  }
+
+  .reading-form-row {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .reading-page-row {
+    grid-template-columns: 60px minmax(0, 1fr) auto;
+  }
+
+  .reading-page-row button {
+    padding: 5px 8px;
   }
 
   .editor-panel,
