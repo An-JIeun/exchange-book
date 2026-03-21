@@ -975,10 +975,32 @@ button:disabled {
     padding: 12px;
   }
 
+  input {
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 9px;
+  }
+
   .login-card {
-    margin-top: 36px;
-    padding: 18px;
+    margin-top: 28px;
+    padding: 14px;
     border-radius: 14px;
+  }
+
+  .login-card h1 {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+
+  .login-card p {
+    font-size: 13px;
+  }
+
+  .login-card input,
+  .login-card button {
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 9px;
   }
 
   .login-row,
@@ -1011,6 +1033,26 @@ button:disabled {
 @media (max-width: 520px) {
   .container {
     padding: 10px;
+  }
+
+  input {
+    font-size: 12px;
+    padding: 7px 9px;
+  }
+
+  .login-card {
+    margin-top: 20px;
+    padding: 12px;
+  }
+
+  .login-card h1 {
+    font-size: 22px;
+  }
+
+  .login-card input,
+  .login-card button {
+    padding: 7px 9px;
+    font-size: 12px;
   }
 
   .bookshelf {
