@@ -44,14 +44,20 @@ _ensure_user_admin_column()
 def _ensure_nullable_reference_columns():
     inspector = inspect(engine)
     if "underlines" in inspector.get_table_names():
-        underline_columns = [column["name"] for column in inspector.get_columns("underlines")]
-        if "book_id" in underline_columns:
+        underline_columns = {
+            column["name"]: column for column in inspector.get_columns("underlines")
+        }
+        book_id_column = underline_columns.get("book_id")
+        if book_id_column and not book_id_column.get("nullable", True):
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE underlines MODIFY COLUMN book_id INT NULL"))
 
     if "comments" in inspector.get_table_names():
-        comment_columns = [column["name"] for column in inspector.get_columns("comments")]
-        if "underline_id" in comment_columns:
+        comment_columns = {
+            column["name"]: column for column in inspector.get_columns("comments")
+        }
+        underline_id_column = comment_columns.get("underline_id")
+        if underline_id_column and not underline_id_column.get("nullable", True):
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE comments MODIFY COLUMN underline_id INT NULL"))
 
@@ -82,3 +88,18 @@ def health_check():
     This endpoint is pinged every 5 minutes to keep the app awake on Render's free tier.
     """
     return {"status": "ok"}
+
+
+@app.head("/api/health")
+def health_check_head():
+    return
+
+
+@app.get("/healthz")
+def healthz_check():
+    return {"status": "ok"}
+
+
+@app.head("/healthz")
+def healthz_check_head():
+    return
