@@ -430,8 +430,11 @@ onMounted(async () => {
           <button :disabled="loadingUnderlines" @click="loadUnderlines">페이지 조회</button>
         </div>
 
-        <div class="action-row underline-create-row">
+        <div class="action-row underline-content-row">
           <input v-model="underlineInput" type="text" placeholder="밑줄 내용을 입력하세요" @keyup.enter="handleAddUnderline" />
+        </div>
+
+        <div class="action-row underline-comment-row">
           <input
             v-model="underlineInitialCommentInput"
             type="text"
@@ -610,6 +613,28 @@ onMounted(async () => {
 
 .action-row > * {
   min-width: 0;
+}
+
+.underline-content-row input {
+  width: 100%;
+  flex: 1 1 100%;
+}
+
+.underline-comment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.underline-comment-row input {
+  width: 100%;
+  min-width: 0;
+}
+
+.underline-comment-row button {
+  width: auto;
+  white-space: nowrap;
 }
 
 p,
@@ -1002,6 +1027,7 @@ button:disabled {
 
   .login-card {
     margin-top: 28px;
+    max-width: 420px;
     padding: 14px;
     border-radius: 14px;
   }
@@ -1022,16 +1048,26 @@ button:disabled {
     border-radius: 9px;
   }
 
-  .login-row,
-  .login-inputs,
-  .login-actions {
-    flex-direction: column;
+  .login-row {
+    gap: 8px;
   }
 
-  .login-actions button,
+  .login-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .login-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
   .login-inputs input,
   .login-actions button {
     width: 100%;
+    min-width: 0;
   }
 
   .action-row {
@@ -1093,7 +1129,6 @@ button:disabled {
     white-space: nowrap;
   }
 
-  .underline-create-row,
   .admin-user-row,
   .admin-form {
     display: grid;
@@ -1102,19 +1137,21 @@ button:disabled {
     align-items: center;
   }
 
-  .underline-create-row input,
   .admin-user-row input,
   .admin-form input {
     width: 100%;
     min-width: 0;
   }
 
-  .underline-create-row button,
   .admin-user-row button,
   .admin-form button {
     grid-column: 1 / -1;
     width: 100%;
     flex: 1 1 100%;
+  }
+
+  .underline-comment-row {
+    gap: 8px;
   }
 
   .library-header {
@@ -1144,6 +1181,7 @@ button:disabled {
 
   .login-card {
     margin-top: 20px;
+    max-width: 380px;
     padding: 12px;
   }
 
@@ -1155,6 +1193,11 @@ button:disabled {
   .login-card button {
     padding: 6px 8px;
     font-size: 12px;
+  }
+
+  .login-inputs,
+  .login-actions {
+    gap: 6px;
   }
 
   .action-row {
@@ -1173,7 +1216,7 @@ button:disabled {
     gap: 6px;
   }
 
-  .underline-create-row,
+  .underline-comment-row,
   .admin-user-row,
   .admin-form {
     gap: 6px;
@@ -1186,6 +1229,13 @@ button:disabled {
   .editor-panel,
   .library-header {
     padding: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-inputs,
+  .login-actions {
+    grid-template-columns: 1fr;
   }
 }
 </style>
