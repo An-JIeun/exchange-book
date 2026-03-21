@@ -41,6 +41,40 @@ def _ensure_user_admin_column():
 _ensure_user_admin_column()
 
 
+def _ensure_user_reading_status_column():
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = [column["name"] for column in inspector.get_columns("users")]
+    if "reading_status" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN reading_status VARCHAR(20) NOT NULL DEFAULT 'before'")
+        )
+
+
+_ensure_user_reading_status_column()
+
+
+def _ensure_book_total_pages_column():
+    inspector = inspect(engine)
+    if "books" not in inspector.get_table_names():
+        return
+
+    columns = [column["name"] for column in inspector.get_columns("books")]
+    if "total_pages" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE books ADD COLUMN total_pages INT NULL"))
+
+
+_ensure_book_total_pages_column()
+
+
 def _ensure_nullable_reference_columns():
     inspector = inspect(engine)
     if "underlines" in inspector.get_table_names():

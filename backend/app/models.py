@@ -11,6 +11,7 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    reading_status: Mapped[str] = mapped_column(String(20), nullable=False, default="before")
     current_book_id: Mapped[int | None] = mapped_column(ForeignKey("books.id"), nullable=True)
     current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_book_id: Mapped[int | None] = mapped_column(ForeignKey("books.id"), nullable=True)
@@ -23,6 +24,7 @@ class Book(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     author: Mapped[str] = mapped_column(String(100), nullable=False)
     cover_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    total_pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Underline(Base):

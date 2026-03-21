@@ -24,12 +24,17 @@ const initializing = ref(false)
 const loadingBooks = ref(false)
 const loadingUnderlines = ref(false)
 const loadingAdminAction = ref(false)
+const loadingReadingBoard = ref(false)
 const coldStartMessage = ref('')
 const adminUserNickname = ref('')
 const adminUserPassword = ref('')
 const adminBookTitle = ref('')
 const adminBookAuthor = ref('')
+const adminBookTotalPages = ref('')
 const adminMessage = ref('')
+const readingBoard = ref([])
+const readingDraftByUser = ref({})
+const readingMessage = ref('')
 
 const selectedBook = computed(() =>
   books.value.find((book) => book.id === selectedBookId.value) ?? null,
@@ -42,6 +47,28 @@ const usersById = computed(() => {
   }
   return mapped
 })
+
+const readingStatusOptions = [
+  { value: 'before', label: '읽기전' },
+  { value: 'reading', label: '읽는중' },
+  { value: 'done', label: '완료' },
+]
+
+function getReadingProgressPercent(item) {
+  const totalPages = item?.current_book?.total_pages
+  const currentPage = item?.user?.current_page
+  const status = item?.user?.reading_status
+
+  if (status === 'done' && totalPages && totalPages > 0) {
+    return 100
+  }
+
+  if (!totalPages || totalPages <= 0 || currentPage == null || currentPage < 0) {
+    return null
+  }
+  const safeCurrent = Math.min(currentPage, totalPages)
+  return Math.round((safeCurrent / totalPages) * 100)
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -87,6 +114,41 @@ async function warmUpBackend() {
 
 async function loadUsers() {
   users.value = await request('/users')
+}
+
+function syncReadingDrafts(items) {
+  const next = {}
+  for (const item of items) {
+    next[item.user.id] = {
+      current_book_id: item.user.current_book_id ?? '',
+      reading_status: item.user.reading_status ?? 'before',
+      current_page: item.user.current_page ?? '',
+    }
+  }
+  readingDraftByUser.value = next
+}
+
+async function loadReadingBoard() {
+  loadingReadingBoard.value = true
+  try {
+    readingBoard.value = await request('/dashboards/board')
+    syncReadingDrafts(readingBoard.value)
+  } finally {
+    loadingReadingBoard.value = false
+  }
+}
+
+function syncCurrentPageForDone(userId) {
+  const draft = readingDraftByUser.value[userId]
+  if (!draft || draft.reading_status !== 'done') return
+
+  const selectedBookId = draft.current_book_id === '' ? null : Number(draft.current_book_id)
+  if (selectedBookId === null || Number.isNaN(selectedBookId)) return
+
+  const selectedBook = books.value.find((book) => book.id === selectedBookId)
+  if (selectedBook?.total_pages && selectedBook.total_pages > 0) {
+    draft.current_page = selectedBook.total_pages
+  }
 }
 
 async function ensureDisplayBooks() {
@@ -169,6 +231,7 @@ async function handleLogin() {
     await loadUsers()
     await ensureDisplayBooks()
     await loadUnderlines()
+    await loadReadingBoard()
   } catch (error) {
     errorMessage.value = '로그인에 실패했습니다. 등록된 계정과 비밀번호를 확인해주세요.'
   } finally {
@@ -287,18 +350,22 @@ async function handleCreateUserByAdmin() {
 async function handleCreateBookByAdmin() {
   const title = adminBookTitle.value.trim()
   const author = adminBookAuthor.value.trim()
+  const totalPages = adminBookTotalPages.value === '' ? null : Number(adminBookTotalPages.value)
   if (!title || !author) return
+  if (totalPages !== null && (Number.isNaN(totalPages) || totalPages < 1)) return
 
   loadingAdminAction.value = true
   try {
     await request('/books', {
       method: 'POST',
-      body: JSON.stringify({ title, author }),
+      body: JSON.stringify({ title, author, total_pages: totalPages }),
     })
 
     adminBookTitle.value = ''
     adminBookAuthor.value = ''
+    adminBookTotalPages.value = ''
     await ensureDisplayBooks()
+    await loadReadingBoard()
     adminMessage.value = '책이 추가되었습니다.'
   } finally {
     loadingAdminAction.value = false
@@ -319,9 +386,52 @@ async function handleDeleteBookByAdmin(bookId) {
       await loadUnderlines()
     }
 
+    await loadReadingBoard()
+
     adminMessage.value = '책이 삭제되었습니다.'
   } finally {
     loadingAdminAction.value = false
+  }
+}
+
+async function handleSaveReadingCard(userId) {
+  if (!currentUser.value || currentUser.value.id !== userId) return
+  const draft = readingDraftByUser.value[userId]
+  if (!draft) return
+
+  const currentBookId = draft.current_book_id === '' ? null : Number(draft.current_book_id)
+  let currentPage = draft.current_page === '' ? null : Number(draft.current_page)
+
+  if (currentBookId !== null && Number.isNaN(currentBookId)) return
+  if (currentPage !== null && (Number.isNaN(currentPage) || currentPage < 0)) return
+
+  if (draft.reading_status === 'done') {
+    const selectedBook = books.value.find((book) => book.id === currentBookId)
+    if (selectedBook?.total_pages && selectedBook.total_pages > 0) {
+      currentPage = selectedBook.total_pages
+    }
+  }
+
+  loadingReadingBoard.value = true
+  readingMessage.value = ''
+  try {
+    const updated = await request(`/users/${userId}/dashboard`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        current_book_id: currentBookId,
+        current_page: currentPage,
+        reading_status: draft.reading_status,
+      }),
+    })
+
+    if (currentUser.value?.id === updated.id) {
+      currentUser.value = updated
+    }
+
+    await Promise.all([loadUsers(), loadReadingBoard()])
+    readingMessage.value = '읽기 현황이 저장되었습니다.'
+  } finally {
+    loadingReadingBoard.value = false
   }
 }
 
@@ -333,6 +443,9 @@ function handleLogout() {
   loginPassword.value = ''
   underlines.value = []
   commentsByUnderline.value = {}
+  readingBoard.value = []
+  readingDraftByUser.value = {}
+  readingMessage.value = ''
 }
 
 watch(selectedBookId, async () => {
@@ -347,6 +460,7 @@ onMounted(async () => {
     await warmUpBackend()
     await loadUsers()
     await ensureDisplayBooks()
+    await loadReadingBoard()
   } catch {
     errorMessage.value = '초기 데이터 로딩에 실패했습니다.'
   } finally {
@@ -390,6 +504,7 @@ onMounted(async () => {
 
       <div class="tab-row">
         <button :class="['tab-btn', { active: activeTab === 'library' }]" @click="activeTab = 'library'">서재</button>
+        <button :class="['tab-btn', { active: activeTab === 'reading' }]" @click="activeTab = 'reading'">읽기 현황</button>
         <button
           v-if="currentUser?.is_admin"
           :class="['tab-btn', { active: activeTab === 'admin' }]"
@@ -506,6 +621,84 @@ onMounted(async () => {
         </div>
       </section>
 
+      <section v-if="activeTab === 'reading'" class="editor-panel reading-panel">
+        <h2>읽기 현황 보드</h2>
+        <p class="meta">각 멤버의 현재 읽기 상태를 확인하고, 내 카드만 수정할 수 있습니다.</p>
+
+        <div v-if="loadingReadingBoard" class="inline-loader-row">
+          <div class="spinner small" aria-hidden="true"></div>
+          <span class="meta">읽기 현황 불러오는 중...</span>
+        </div>
+
+        <div v-else class="reading-grid">
+          <article v-for="item in readingBoard" :key="item.user.id" class="reading-card">
+            <div class="reading-card-head">
+              <strong>{{ item.user.nickname }}</strong>
+              <span class="meta">{{ currentUser?.id === item.user.id ? '내 카드' : '읽기 전용' }}</span>
+            </div>
+
+            <div class="reading-form-row">
+              <label>책</label>
+              <select
+                v-model="readingDraftByUser[item.user.id].current_book_id"
+                :disabled="currentUser?.id !== item.user.id"
+                @change="syncCurrentPageForDone(item.user.id)"
+              >
+                <option value="">선택 안함</option>
+                <option v-for="book in books" :key="book.id" :value="book.id">{{ book.title }}</option>
+              </select>
+            </div>
+
+            <div class="reading-form-row">
+              <label>상태</label>
+              <select
+                v-model="readingDraftByUser[item.user.id].reading_status"
+                :disabled="currentUser?.id !== item.user.id"
+                @change="syncCurrentPageForDone(item.user.id)"
+              >
+                <option v-for="option in readingStatusOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="reading-form-row">
+              <label>현재 페이지</label>
+              <input
+                v-model="readingDraftByUser[item.user.id].current_page"
+                type="number"
+                min="0"
+                :disabled="currentUser?.id !== item.user.id"
+              />
+            </div>
+
+            <div class="reading-progress" v-if="getReadingProgressPercent(item) !== null">
+              <div class="reading-progress-top">
+                <span>진행률</span>
+                <strong>{{ getReadingProgressPercent(item) }}%</strong>
+              </div>
+              <div class="reading-progress-track">
+                <div class="reading-progress-bar" :style="{ width: `${getReadingProgressPercent(item)}%` }"></div>
+              </div>
+              <p class="meta">
+                {{ item.user.current_page || 0 }} / {{ item.current_book?.total_pages }} 페이지
+              </p>
+            </div>
+            <p v-else class="meta">진행률을 보려면 책의 총 페이지를 등록하세요.</p>
+
+            <button
+              v-if="currentUser?.id === item.user.id"
+              :disabled="loadingReadingBoard"
+              @click="handleSaveReadingCard(item.user.id)"
+            >
+              내 카드 저장
+            </button>
+          </article>
+        </div>
+
+        <p v-if="readingMessage" class="meta-message">{{ readingMessage }}</p>
+      </section>
+
       <section v-if="activeTab === 'admin'" class="editor-panel admin-panel">
         <h2>Admin 페이지</h2>
         <p class="meta">회원 관리와 책 추가를 할 수 있습니다.</p>
@@ -538,11 +731,12 @@ onMounted(async () => {
             <div class="admin-form">
               <input v-model="adminBookTitle" type="text" placeholder="책 제목" />
               <input v-model="adminBookAuthor" type="text" placeholder="저자" />
+              <input v-model="adminBookTotalPages" type="number" min="1" placeholder="총 페이지(선택)" />
               <button :disabled="loadingAdminAction || loadingBooks" @click="handleCreateBookByAdmin">책 등록</button>
             </div>
             <ul class="admin-list">
               <li v-for="book in books" :key="book.id" class="admin-list-row">
-                <span>#{{ book.id }} · {{ book.title }} ({{ book.author }})</span>
+                <span>#{{ book.id }} · {{ book.title }} ({{ book.author }}) · {{ book.total_pages || '-' }}p</span>
                 <button class="delete-btn" :disabled="loadingAdminAction || loadingBooks" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
               </li>
             </ul>
@@ -689,6 +883,7 @@ h3 {
 }
 
 input,
+select,
 button {
   border: 1px solid #d3dfd3;
   border-radius: 10px;
@@ -704,7 +899,18 @@ input {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+select {
+  background: #fff;
+  min-width: 0;
+}
+
 input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(150, 186, 149, 0.2);
+}
+
+select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(150, 186, 149, 0.2);
@@ -947,6 +1153,74 @@ button:disabled {
   gap: 10px;
 }
 
+.reading-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reading-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.reading-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #f9fcf9;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reading-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.reading-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reading-form-row label {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.reading-progress {
+  border: 1px solid #e2ebe2;
+  border-radius: 10px;
+  padding: 8px;
+  background: #fff;
+}
+
+.reading-progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.reading-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #eaf2e9;
+  overflow: hidden;
+}
+
+.reading-progress-bar {
+  height: 100%;
+  background: #96ba95;
+}
+
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1025,20 +1299,26 @@ button:disabled {
     border-radius: 9px;
   }
 
+  select {
+    font-size: 13px;
+    padding: 7px 9px;
+    border-radius: 9px;
+  }
+
   .login-card {
-    margin-top: 28px;
-    max-width: 420px;
-    padding: 14px;
+    margin-top: 12px;
+    max-width: 360px;
+    padding: 10px;
     border-radius: 14px;
   }
 
   .login-card h1 {
-    font-size: 24px;
-    margin-bottom: 6px;
+    font-size: 20px;
+    margin-bottom: 4px;
   }
 
   .login-card p {
-    font-size: 13px;
+    display: none;
   }
 
   .login-card input,
@@ -1049,7 +1329,7 @@ button:disabled {
   }
 
   .login-row {
-    gap: 8px;
+    gap: 6px;
   }
 
   .login-inputs {
@@ -1129,10 +1409,29 @@ button:disabled {
     white-space: nowrap;
   }
 
+  .underline-content-row,
+  .underline-comment-row {
+    display: block;
+  }
+
+  .underline-content-row input,
+  .underline-comment-row input {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .underline-comment-row button {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 6px;
+    white-space: normal;
+  }
+
   .admin-user-row,
   .admin-form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     align-items: center;
   }
@@ -1145,7 +1444,6 @@ button:disabled {
 
   .admin-user-row button,
   .admin-form button {
-    grid-column: 1 / -1;
     width: 100%;
     flex: 1 1 100%;
   }
@@ -1179,14 +1477,19 @@ button:disabled {
     padding: 6px 8px;
   }
 
+  select {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
   .login-card {
-    margin-top: 20px;
-    max-width: 380px;
-    padding: 12px;
+    margin-top: 8px;
+    max-width: 320px;
+    padding: 8px;
   }
 
   .login-card h1 {
-    font-size: 22px;
+    font-size: 18px;
   }
 
   .login-card input,
@@ -1197,7 +1500,7 @@ button:disabled {
 
   .login-inputs,
   .login-actions {
-    gap: 6px;
+    gap: 4px;
   }
 
   .action-row {
@@ -1223,6 +1526,10 @@ button:disabled {
   }
 
   .bookshelf {
+    grid-template-columns: 1fr;
+  }
+
+  .reading-grid {
     grid-template-columns: 1fr;
   }
 

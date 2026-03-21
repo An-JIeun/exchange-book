@@ -9,7 +9,12 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 @router.post("", response_model=schemas.BookRead)
 def create_book(payload: schemas.BookCreate, db: Session = Depends(get_db)):
-    book = models.Book(title=payload.title, author=payload.author, cover_url=payload.cover_url)
+    book = models.Book(
+        title=payload.title,
+        author=payload.author,
+        cover_url=payload.cover_url,
+        total_pages=payload.total_pages,
+    )
     db.add(book)
     db.commit()
     db.refresh(book)

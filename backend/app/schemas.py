@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -22,12 +24,14 @@ class UserRead(BaseModel):
     id: int
     nickname: str
     is_admin: bool = False
+    reading_status: Literal["before", "reading", "done"] = "before"
     current_book_id: int | None = None
     current_page: int | None = None
     next_book_id: int | None = None
 
 
 class UserDashboardUpdate(BaseModel):
+    reading_status: Literal["before", "reading", "done"] | None = None
     current_book_id: int | None = None
     current_page: int | None = None
     next_book_id: int | None = None
@@ -37,6 +41,7 @@ class BookCreate(BaseModel):
     title: str
     author: str
     cover_url: str | None = None
+    total_pages: int | None = None
 
 
 class BookRead(BaseModel):
@@ -46,6 +51,7 @@ class BookRead(BaseModel):
     title: str
     author: str
     cover_url: str | None = None
+    total_pages: int | None = None
 
 
 class UnderlineCreate(BaseModel):
@@ -87,3 +93,8 @@ class DashboardRead(BaseModel):
     user: UserRead
     current_book: BookRead | None = None
     next_book: BookRead | None = None
+
+
+class ReadingBoardItem(BaseModel):
+    user: UserRead
+    current_book: BookRead | None = None

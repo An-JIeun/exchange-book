@@ -7,6 +7,21 @@ from ..database import get_db
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
 
 
+@router.get("/board", response_model=list[schemas.ReadingBoardItem])
+def get_reading_board(db: Session = Depends(get_db)):
+    users = db.query(models.User).order_by(models.User.id.asc()).all()
+    books = db.query(models.Book).all()
+    books_by_id = {book.id: book for book in books}
+
+    return [
+        {
+            "user": user,
+            "current_book": books_by_id.get(user.current_book_id) if user.current_book_id else None,
+        }
+        for user in users
+    ]
+
+
 @router.get("/{user_id}", response_model=schemas.DashboardRead)
 def get_user_dashboard(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()

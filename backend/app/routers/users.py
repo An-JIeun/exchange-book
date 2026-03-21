@@ -23,6 +23,7 @@ def create_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         nickname=payload.nickname,
         password_hash=_hash_password(payload.password),
         is_admin=False,
+        reading_status="before",
     )
     db.add(user)
     db.commit()
@@ -41,6 +42,7 @@ def signup_user(payload: schemas.UserSignup, db: Session = Depends(get_db)):
         nickname=payload.nickname,
         password_hash=_hash_password(payload.password),
         is_admin=not has_users,
+        reading_status="before",
     )
     db.add(user)
     db.commit()
@@ -74,6 +76,8 @@ def update_user_dashboard(user_id: int, payload: schemas.UserDashboardUpdate, db
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if payload.reading_status is not None:
+        user.reading_status = payload.reading_status
     user.current_book_id = payload.current_book_id
     user.current_page = payload.current_page
     user.next_book_id = payload.next_book_id
