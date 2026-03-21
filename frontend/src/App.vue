@@ -430,7 +430,7 @@ onMounted(async () => {
           <button :disabled="loadingUnderlines" @click="loadUnderlines">페이지 조회</button>
         </div>
 
-        <div class="action-row">
+        <div class="action-row underline-create-row">
           <input v-model="underlineInput" type="text" placeholder="밑줄 내용을 입력하세요" @keyup.enter="handleAddUnderline" />
           <input
             v-model="underlineInitialCommentInput"
@@ -510,7 +510,7 @@ onMounted(async () => {
         <div class="admin-grid">
           <article class="admin-card">
             <h3>회원 관리</h3>
-            <div class="action-row">
+            <div class="action-row admin-user-row">
               <input
                 v-model="adminUserNickname"
                 type="text"
@@ -558,6 +558,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+* {
+  box-sizing: border-box;
+}
+
 .container {
   --primary: #96ba95;
   --primary-strong: #7ea97d;
@@ -602,6 +606,20 @@ onMounted(async () => {
   gap: 10px;
   margin-top: 12px;
   flex-wrap: wrap;
+}
+
+.action-row > * {
+  min-width: 0;
+}
+
+p,
+span,
+strong,
+li,
+h1,
+h2,
+h3 {
+  overflow-wrap: anywhere;
 }
 
 .login-row {
@@ -1024,12 +1042,14 @@ button:disabled {
   }
 
   .action-row input {
-    flex: 1 1 140px;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
   }
 
   .action-row button {
-    width: auto;
-    flex: 0 0 auto;
+    width: 100%;
+    flex: 1 1 100%;
     padding: 7px 10px;
   }
 
@@ -1048,6 +1068,8 @@ button:disabled {
 
   .page-query-row button {
     width: auto;
+    max-width: 100%;
+    flex: 0 0 auto;
     white-space: nowrap;
   }
 
@@ -1066,7 +1088,33 @@ button:disabled {
 
   .comment-input-row button {
     width: auto;
+    max-width: 100%;
+    flex: 0 0 auto;
     white-space: nowrap;
+  }
+
+  .underline-create-row,
+  .admin-user-row,
+  .admin-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .underline-create-row input,
+  .admin-user-row input,
+  .admin-form input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .underline-create-row button,
+  .admin-user-row button,
+  .admin-form button {
+    grid-column: 1 / -1;
+    width: 100%;
+    flex: 1 1 100%;
   }
 
   .library-header {
@@ -1122,6 +1170,12 @@ button:disabled {
   }
 
   .comment-input-row {
+    gap: 6px;
+  }
+
+  .underline-create-row,
+  .admin-user-row,
+  .admin-form {
     gap: 6px;
   }
 
