@@ -21,6 +21,9 @@ const commentDraftByUnderline = ref({})
 const errorMessage = ref('')
 const loading = ref(false)
 const initializing = ref(false)
+const loadingBooks = ref(false)
+const loadingUnderlines = ref(false)
+const loadingAdminAction = ref(false)
 const coldStartMessage = ref('')
 const adminUserNickname = ref('')
 const adminUserPassword = ref('')
@@ -87,38 +90,49 @@ async function loadUsers() {
 }
 
 async function ensureDisplayBooks() {
-  const currentBooks = await request('/books')
-  if (currentBooks.length === 0) {
-    const defaults = [
-      { title: '아몬드', author: '손원평' },
-      { title: '달러구트 꿈 백화점', author: '이미예' },
-      { title: '불편한 편의점', author: '김호연' },
-    ]
-    for (const item of defaults) {
-      await request('/books', {
-        method: 'POST',
-        body: JSON.stringify(item),
-      })
+  loadingBooks.value = true
+  try {
+    const currentBooks = await request('/books')
+    if (currentBooks.length === 0) {
+      const defaults = [
+        { title: '아몬드', author: '손원평' },
+        { title: '달러구트 꿈 백화점', author: '이미예' },
+        { title: '불편한 편의점', author: '김호연' },
+      ]
+      for (const item of defaults) {
+        await request('/books', {
+          method: 'POST',
+          body: JSON.stringify(item),
+        })
+      }
+      books.value = await request('/books')
+    } else {
+      books.value = currentBooks
     }
-    books.value = await request('/books')
-  } else {
-    books.value = currentBooks
-  }
 
-  if (!selectedBookId.value && books.value.length > 0) {
-    selectedBookId.value = books.value[0].id
+    if (!selectedBookId.value && books.value.length > 0) {
+      selectedBookId.value = books.value[0].id
+    }
+  } finally {
+    loadingBooks.value = false
   }
 }
 
 async function loadUnderlines() {
+  loadingUnderlines.value = true
   if (!selectedBookId.value) {
     underlines.value = []
     commentsByUnderline.value = {}
+    loadingUnderlines.value = false
     return
   }
-  const query = pageFilter.value ? `?page=${pageFilter.value}` : ''
-  underlines.value = await request(`/underlines/book/${selectedBookId.value}${query}`)
-  await loadCommentsForUnderlines(underlines.value)
+  try {
+    const query = pageFilter.value ? `?page=${pageFilter.value}` : ''
+    underlines.value = await request(`/underlines/book/${selectedBookId.value}${query}`)
+    await loadCommentsForUnderlines(underlines.value)
+  } finally {
+    loadingUnderlines.value = false
+  }
 }
 
 async function loadCommentsForUnderlines(lines) {
@@ -254,15 +268,20 @@ async function handleCreateUserByAdmin() {
   const password = adminUserPassword.value.trim()
   if (!nickname || !password) return
 
-  await request('/users', {
-    method: 'POST',
-    body: JSON.stringify({ nickname, password }),
-  })
+  loadingAdminAction.value = true
+  try {
+    await request('/users', {
+      method: 'POST',
+      body: JSON.stringify({ nickname, password }),
+    })
 
-  adminUserNickname.value = ''
-  adminUserPassword.value = ''
-  await loadUsers()
-  adminMessage.value = '회원이 추가되었습니다.'
+    adminUserNickname.value = ''
+    adminUserPassword.value = ''
+    await loadUsers()
+    adminMessage.value = '회원이 추가되었습니다.'
+  } finally {
+    loadingAdminAction.value = false
+  }
 }
 
 async function handleCreateBookByAdmin() {
@@ -270,30 +289,40 @@ async function handleCreateBookByAdmin() {
   const author = adminBookAuthor.value.trim()
   if (!title || !author) return
 
-  await request('/books', {
-    method: 'POST',
-    body: JSON.stringify({ title, author }),
-  })
+  loadingAdminAction.value = true
+  try {
+    await request('/books', {
+      method: 'POST',
+      body: JSON.stringify({ title, author }),
+    })
 
-  adminBookTitle.value = ''
-  adminBookAuthor.value = ''
-  await ensureDisplayBooks()
-  adminMessage.value = '책이 추가되었습니다.'
+    adminBookTitle.value = ''
+    adminBookAuthor.value = ''
+    await ensureDisplayBooks()
+    adminMessage.value = '책이 추가되었습니다.'
+  } finally {
+    loadingAdminAction.value = false
+  }
 }
 
 async function handleDeleteBookByAdmin(bookId) {
-  await request(`/books/${bookId}`, {
-    method: 'DELETE',
-  })
+  loadingAdminAction.value = true
+  try {
+    await request(`/books/${bookId}`, {
+      method: 'DELETE',
+    })
 
-  await ensureDisplayBooks()
+    await ensureDisplayBooks()
 
-  if (selectedBookId.value === bookId) {
-    selectedBookId.value = books.value.length ? books.value[0].id : null
-    await loadUnderlines()
+    if (selectedBookId.value === bookId) {
+      selectedBookId.value = books.value.length ? books.value[0].id : null
+      await loadUnderlines()
+    }
+
+    adminMessage.value = '책이 삭제되었습니다.'
+  } finally {
+    loadingAdminAction.value = false
   }
-
-  adminMessage.value = '책이 삭제되었습니다.'
 }
 
 function handleLogout() {
@@ -329,19 +358,24 @@ onMounted(async () => {
 <template>
   <main class="container">
     <section v-if="!isLoggedIn" class="login-card">
-      <h1>meet-zool</h1>
-      <p>교환독서 서재에 입장하려면 닉네임으로 로그인하세요.</p>
-      <p v-if="initializing || coldStartMessage" class="meta-message">{{ coldStartMessage || '초기 데이터를 불러오는 중...' }}</p>
-      <div class="login-row">
-        <div class="login-inputs">
-          <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
-          <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
-        </div>
-        <div class="login-actions">
-          <button :disabled="loading" @click="handleLogin">로그인</button>
-          <button :disabled="loading" @click="handleSignup">회원가입</button>
-        </div>
+      <div v-if="initializing || coldStartMessage" class="initial-loader-wrap">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="meta-message">{{ coldStartMessage || '초기 데이터를 불러오는 중...' }}</p>
       </div>
+      <template v-else>
+        <h1>meet-zool</h1>
+        <p>교환독서 서재에 입장하려면 닉네임으로 로그인하세요.</p>
+        <div class="login-row">
+          <div class="login-inputs">
+            <input v-model="loginNickname" type="text" placeholder="닉네임 입력" @keyup.enter="handleLogin" />
+            <input v-model="loginPassword" type="password" placeholder="비밀번호" @keyup.enter="handleLogin" />
+          </div>
+          <div class="login-actions">
+            <button :disabled="loading" @click="handleLogin">로그인</button>
+            <button :disabled="loading" @click="handleSignup">회원가입</button>
+          </div>
+        </div>
+      </template>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </section>
 
@@ -366,17 +400,26 @@ onMounted(async () => {
       </div>
 
       <section v-if="activeTab === 'library'" class="bookshelf">
-        <article
-          v-for="book in books"
-          :key="book.id"
-          class="book-card"
-          :class="{ selected: selectedBookId === book.id }"
-          @click="selectedBookId = book.id"
-        >
-          <div class="book-cover">📚</div>
-          <strong>{{ book.title }}</strong>
-          <span>{{ book.author }}</span>
-        </article>
+        <template v-if="loadingBooks">
+          <article v-for="n in 6" :key="`book-skeleton-${n}`" class="book-card skeleton-card">
+            <div class="book-cover skeleton-block"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+          </article>
+        </template>
+        <template v-else>
+          <article
+            v-for="book in books"
+            :key="book.id"
+            class="book-card"
+            :class="{ selected: selectedBookId === book.id }"
+            @click="selectedBookId = book.id"
+          >
+            <div class="book-cover">📚</div>
+            <strong>{{ book.title }}</strong>
+            <span>{{ book.author }}</span>
+          </article>
+        </template>
       </section>
 
       <section v-if="activeTab === 'library' && selectedBook" class="editor-panel">
@@ -384,7 +427,7 @@ onMounted(async () => {
 
         <div class="action-row">
           <input v-model="pageFilter" type="number" min="1" placeholder="페이지 번호" />
-          <button @click="loadUnderlines">페이지 조회</button>
+          <button :disabled="loadingUnderlines" @click="loadUnderlines">페이지 조회</button>
         </div>
 
         <div class="action-row">
@@ -395,53 +438,68 @@ onMounted(async () => {
             placeholder="첫 코멘트(선택)"
             @keyup.enter="handleAddUnderline"
           />
-          <button @click="handleAddUnderline">밑줄 저장</button>
+          <button :disabled="loadingUnderlines" @click="handleAddUnderline">밑줄 저장</button>
         </div>
 
         <div class="underline-list">
-          <article v-for="line in underlines" :key="line.id" class="underline-item">
-            <div class="underline-header-row">
-              <p class="meta">페이지 {{ line.page }}</p>
-              <button
-                v-if="currentUser?.id === line.user_id"
-                class="delete-btn"
-                @click="handleDeleteUnderline(line.id)"
-              >
-                밑줄 삭제
-              </button>
+          <div v-if="loadingUnderlines" class="underline-carousel-loader" aria-busy="true">
+            <div class="carousel-track">
+              <article v-for="n in 4" :key="`underline-skeleton-${n}`" class="carousel-card">
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-line"></div>
+              </article>
             </div>
-            <p class="author">작성자: {{ usersById[line.user_id]?.nickname || `유저 #${line.user_id}` }}</p>
-            <p>{{ line.content }}</p>
-
-            <div class="comment-block">
-              <p class="comment-title">댓글</p>
-              <p v-if="!(commentsByUnderline[line.id] || []).length" class="empty">아직 댓글이 없습니다.</p>
-              <ul v-else class="comment-list">
-                <li v-for="comment in commentsByUnderline[line.id]" :key="comment.id">
-                  <strong>{{ usersById[comment.user_id]?.nickname || `유저 #${comment.user_id}` }}</strong>
-                  <span>{{ comment.content }}</span>
-                  <button
-                    v-if="currentUser?.id === comment.user_id"
-                    class="delete-btn"
-                    @click="handleDeleteComment(line.id, comment.id)"
-                  >
-                    삭제
-                  </button>
-                </li>
-              </ul>
-
-              <div class="action-row">
-                <input
-                  v-model="commentDraftByUnderline[line.id]"
-                  type="text"
-                  placeholder="댓글을 입력하세요"
-                  @keyup.enter="handleAddComment(line.id)"
-                />
-                <button @click="handleAddComment(line.id)">댓글 등록</button>
+          </div>
+          <template v-else>
+            <article v-for="line in underlines" :key="line.id" class="underline-item">
+              <div class="underline-header-row">
+                <p class="meta">페이지 {{ line.page }}</p>
+                <button
+                  v-if="currentUser?.id === line.user_id"
+                  class="delete-btn"
+                  :disabled="loadingUnderlines"
+                  @click="handleDeleteUnderline(line.id)"
+                >
+                  밑줄 삭제
+                </button>
               </div>
-            </div>
-          </article>
-          <p v-if="underlines.length === 0" class="empty">밑줄 데이터가 없습니다.</p>
+              <p class="author">작성자: {{ usersById[line.user_id]?.nickname || `유저 #${line.user_id}` }}</p>
+              <p>{{ line.content }}</p>
+
+              <div class="comment-block">
+                <p class="comment-title">댓글</p>
+                <p v-if="!(commentsByUnderline[line.id] || []).length" class="empty">아직 댓글이 없습니다.</p>
+                <ul v-else class="comment-list">
+                  <li v-for="comment in commentsByUnderline[line.id]" :key="comment.id">
+                    <strong>{{ usersById[comment.user_id]?.nickname || `유저 #${comment.user_id}` }}</strong>
+                    <span>{{ comment.content }}</span>
+                    <button
+                      v-if="currentUser?.id === comment.user_id"
+                      class="delete-btn"
+                      :disabled="loadingUnderlines"
+                      @click="handleDeleteComment(line.id, comment.id)"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                </ul>
+
+                <div class="action-row">
+                  <input
+                    v-model="commentDraftByUnderline[line.id]"
+                    type="text"
+                    placeholder="댓글을 입력하세요"
+                    @keyup.enter="handleAddComment(line.id)"
+                  />
+                  <button :disabled="loadingUnderlines" @click="handleAddComment(line.id)">댓글 등록</button>
+                </div>
+              </div>
+            </article>
+            <p v-if="underlines.length === 0" class="empty">밑줄 데이터가 없습니다.</p>
+          </template>
         </div>
       </section>
 
@@ -465,7 +523,7 @@ onMounted(async () => {
                 placeholder="초기 비밀번호"
                 @keyup.enter="handleCreateUserByAdmin"
               />
-              <button @click="handleCreateUserByAdmin">회원 추가</button>
+              <button :disabled="loadingAdminAction" @click="handleCreateUserByAdmin">회원 추가</button>
             </div>
             <ul class="admin-list">
               <li v-for="user in users" :key="user.id">#{{ user.id }} · {{ user.nickname }}</li>
@@ -477,15 +535,20 @@ onMounted(async () => {
             <div class="admin-form">
               <input v-model="adminBookTitle" type="text" placeholder="책 제목" />
               <input v-model="adminBookAuthor" type="text" placeholder="저자" />
-              <button @click="handleCreateBookByAdmin">책 등록</button>
+              <button :disabled="loadingAdminAction || loadingBooks" @click="handleCreateBookByAdmin">책 등록</button>
             </div>
             <ul class="admin-list">
               <li v-for="book in books" :key="book.id" class="admin-list-row">
                 <span>#{{ book.id }} · {{ book.title }} ({{ book.author }})</span>
-                <button class="delete-btn" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
+                <button class="delete-btn" :disabled="loadingAdminAction || loadingBooks" @click="handleDeleteBookByAdmin(book.id)">책 삭제</button>
               </li>
             </ul>
           </article>
+        </div>
+
+        <div v-if="loadingAdminAction" class="inline-loader-row">
+          <div class="spinner small" aria-hidden="true"></div>
+          <span class="meta">관리 작업 처리 중...</span>
         </div>
 
         <p v-if="adminMessage" class="meta-message">{{ adminMessage }}</p>
@@ -508,6 +571,15 @@ onMounted(async () => {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 24px;
+}
+
+.initial-loader-wrap {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .login-card h1 {
@@ -543,6 +615,21 @@ onMounted(async () => {
   margin-top: 10px;
   color: #6b7280;
   font-size: 13px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+.spinner.small {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 
 input,
@@ -625,6 +712,34 @@ button {
   cursor: pointer;
 }
 
+.skeleton-card,
+.carousel-card {
+  cursor: default;
+  border-color: #e5e7eb;
+}
+
+.skeleton-block,
+.skeleton-line {
+  background: linear-gradient(90deg, #f1f5f9 20%, #e2e8f0 40%, #f1f5f9 60%);
+  background-size: 220% 100%;
+  animation: shimmer 1.1s ease-in-out infinite;
+}
+
+.skeleton-block {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 8px;
+}
+
+.skeleton-line.short {
+  width: 55%;
+}
+
 .book-card.selected {
   border-color: #111827;
 }
@@ -653,6 +768,33 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.underline-carousel-loader {
+  overflow: hidden;
+  width: 100%;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.carousel-track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation: carouselSlide 1.8s linear infinite;
+}
+
+.carousel-card {
+  width: 260px;
+  min-height: 140px;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
 }
 
 .underline-item {
@@ -757,6 +899,33 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.inline-loader-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@keyframes carouselSlide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-270px);
+  }
 }
 
 @media (max-width: 768px) {
